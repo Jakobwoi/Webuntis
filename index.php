@@ -8,8 +8,10 @@
 
     <body>
     <?php
-    include 'WebUntis.php';
-    login($login_url, $school, $user, $totp->now());
+    include "WebUntis.php";
+    $otp_code = $totp->now();
+    login($login_url, $school, $user, $otp_code);
+    echo get_timetable(5, $user_id, $session_id, time()+172800/2, time()+172800);
     ?>
     </body>
 </html>
