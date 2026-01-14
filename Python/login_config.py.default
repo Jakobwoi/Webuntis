@@ -1,0 +1,4 @@
+KEY = ""  # Key used to generate the OTP
+SCHOOL = "school-abbr"        # WebUntis school name
+USERNAME = "example(@school.tld)" # WebUntis username
+SERVER_URL = "https://school-abbr.webuntis.com"  # WebUntis server URL
