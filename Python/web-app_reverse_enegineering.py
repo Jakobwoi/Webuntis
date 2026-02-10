@@ -3,9 +3,11 @@ import asyncio
 import datetime
 import json
 import requests
+import re
 import pyotp
 from collections import defaultdict
-import Python.login_config as login_config
+import login_config as login_config
+from bs4 import BeautifulSoup
 
 # Configuration
 KEY = login_config.KEY  # Key used to generate the OTP
@@ -187,11 +189,8 @@ async def get_classes(jsessionid):
     response = requests.post(url, json=data, headers=headers)
     return response.json()
 
-async def get_timetable_rest(credentinals, class_id):
-    """Fetch all classes (Klassen) data."""
-    url = f"{SERVER_URL}/WebUntis/api/rest/view/v1/timetable/entries?start=2026-01-12&end=2026-01-16&format=1&resourceType=CLASS&resources={str(class_id)}&periodTypes=&timetableType=STANDARD"
-    url2 =  f"{SERVER_URL}/WebUntis/api/rest/view/v1/timetable/entries?start=2025-11-17&end=2025-11-21&format=5&resourceType=STUDENT&resources=3752&periodTypes=&timetableType=MY_TIMETABLE"
-    
+async def get_timetable_rest_class(credentinals, classID, start_date, end_date):
+    url = f"{SERVER_URL}/WebUntis/api/rest/view/v1/timetable/entries?start={start_date.isoformat()}&end={end_date.isoformat()}&format=1&resourceType=CLASS&resources={str(classID)}&periodTypes=&timetableType=STANDARD"    
     cookies = {
         'JSESSIONID': credentinals['jsessionid']
     }
@@ -205,7 +204,7 @@ async def get_timetable_rest(credentinals, class_id):
     #print(response.json())
     return response.json()
 
-async def get_timetable_rest_teacher(credentinals, teacherShort):
+async def get_timetable_rest_teacher(credentinals, teacherShort, start_date, end_date):
     # Get all classes
     classes_data = await get_classes(credentinals['jsessionid'])
     timetable = {
@@ -281,7 +280,7 @@ async def get_timetable_rest_teacher(credentinals, teacherShort):
     for klasse in classes_data.get('result', []):
         
         klasse_id = klasse.get('id')
-        timetableClass = await get_timetable_rest(credentinals, klasse_id)
+        timetableClass = await get_timetable_rest_class(credentinals, klasse_id, start_date, end_date)
         
         for day in timetableClass.get('days', []):
             for entry in day.get('gridEntries', []):
@@ -315,9 +314,7 @@ async def get_timetable_rest_teacher(credentinals, teacherShort):
                             room = entry.get('position3')[0].get('current').get('shortName')
                             timetable[weekdayStrShort][start_lesson]["room"] = room
                         ltype = entry.get('type')
-                        status = entry.get('status')
-                        if status != "REGULAR":
-                            statusDetail = entry.get('statusDetail')
+                        status = entry.get('status')                            
                         
                         timetable[weekdayStrShort][start_lesson]["teacher"] = teacherShort
                         timetable[weekdayStrShort][start_lesson]["teacherShort"] = teacherShort
@@ -327,8 +324,9 @@ async def get_timetable_rest_teacher(credentinals, teacherShort):
                         timetable[weekdayStrShort][start_lesson]["type"] = ltype
                         timetable[weekdayStrShort][start_lesson]["status"] = status
                         if status != "REGULAR":
+                            statusDetail = entry.get('statusDetail')
                             timetable[weekdayStrShort][start_lesson]["statusDetail"] = statusDetail
-                        
+                                
                         if start_lesson == end_lesson:
                             lesson_str = f"lesson {start_lesson}"
                         elif end_lesson - start_lesson == 1:
@@ -344,7 +342,8 @@ async def get_timetable_rest_teacher(credentinals, teacherShort):
                         
                         print(subjectLong + ' in class ' + klasse.get('name') + ' in ' + lesson_str + ' on ' + weekdayStr)
     return timetable
-async def get_timetable_rest_room(credentinals, roomnumber):
+
+async def get_timetable_rest_room(credentinals, roomnumber, start_date, end_date):
     # Get all classes
     classes_data = await get_classes(credentinals['jsessionid'])
     timetable = {
@@ -420,7 +419,7 @@ async def get_timetable_rest_room(credentinals, roomnumber):
     for klasse in classes_data.get('result', []):
         
         klasse_id = klasse.get('id')
-        timetable_data = await get_timetable_rest(credentinals, klasse_id)
+        timetable_data = await get_timetable_rest_class(credentinals, klasse_id, start_date, end_date)
         
         for day in timetable_data.get('days', []):
             for entry in day.get('gridEntries', []):
@@ -489,9 +488,8 @@ async def get_timetable_rest_room(credentinals, roomnumber):
                     elif entry.get("position3")[0].get("removed"):
                         print("no active room")
     return timetable
-async def get_timetable_rest_class(credentinals, classID):
-    # Get all classes
-    classes_data = await get_classes(credentinals['jsessionid'])
+
+async def parse_timetable_rest(timetableJSON):
     timetable = {
         "mo": {
             1: {},
@@ -560,7 +558,6 @@ async def get_timetable_rest_class(credentinals, classID):
         }
     }
     
-    timetableJSON = get_timetable_rest(credentinals, classID)
     for day in timetableJSON.get('days', []):
         for entry in day.get('gridEntries', []):
             startTime = datetime.datetime.fromisoformat(entry.get('duration').get('start')).time()
@@ -624,6 +621,25 @@ async def get_timetable_rest_class(credentinals, classID):
                 
     return timetable
 
+async def last_update(credentinals):
+    url = f"{SERVER_URL}/WebUntis/main.do"
+    cookies = {
+        'JSESSIONID': credentinals['jsessionid']
+    }
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {credentinals["token"]}',
+    }
+    
+    response = requests.get(url, headers=headers, cookies=cookies)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    last_update_element = soup.find(string=re.compile("Letzte Planaktualisierung aus Untis"))
+    last_update_string = re.sub(r'Letzte Planaktualisierung aus Untis: .*, ', '', last_update_element)
+    last_update = datetime.datetime.strptime(last_update_string, '%d.%m.%Y %H:%M:%S')
+    
+    return last_update
+
 async def main():
     try:
         # Generate OTP token
@@ -636,14 +652,18 @@ async def main():
         print("Logging in to WebUntis...")
         credentinals = await login(SCHOOL, SERVER_URL, token, USERNAME, current_time)
         jsessionid = credentinals['jsessionid']
+        last_update_data = await last_update(credentinals)
         print(f"Login successful. Session ID: {jsessionid}")
-        
-        #timetable_data = await get_timetable_rest_teacher(credentinals, 'PRIS')
-        timetable_data = await get_timetable_rest_teacher(credentinals, 'STEL')
+        today = datetime.date.today()
+        monday = today - datetime.timedelta(days=today.weekday())
+        friday = monday + datetime.timedelta(days=4)
+        print(f"Fetching timetable from {monday} to {friday}...")
+        timetable_data = await get_timetable_rest_room(credentinals, 'B305', monday, friday)
+        #timetable_data = await get_timetable_rest_teacher(credentinals, 'JANM', monday, friday)
         with open('timetable2.json', 'w', encoding='utf-8') as f:
             json.dump(timetable_data, f, ensure_ascii=False, indent=4)
-        print("Timetable saved to timetable.json")
-        timetable_data = await get_timetable_rest(credentinals, 4434)
+        print("Timetable saved to timetable2.json")
+        timetable_data = await get_timetable_rest_class(credentinals, 4434, monday, friday)
         with open('timetable.json', 'w', encoding='utf-8') as f:
             json.dump(timetable_data, f, ensure_ascii=False, indent=4)
         print("Timetable saved to timetable.json")
