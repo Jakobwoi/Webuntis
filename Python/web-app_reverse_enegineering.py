@@ -189,6 +189,25 @@ async def get_classes(jsessionid):
     response = requests.post(url, json=data, headers=headers)
     return response.json()
 
+async def get_holidays(jsessionid):
+    """Fetch all holidays data."""
+    url = f"{SERVER_URL}/WebUntis/jsonrpc.do"
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Cookie': f'JSESSIONID={jsessionid}'
+    }
+    
+    data = {
+        'id': 'get_holidays',
+        'method': 'getHolidays',
+        'params': {},
+        'jsonrpc': '2.0'
+    }
+    
+    response = requests.post(url, json=data, headers=headers)
+    return response.json()
+
 async def get_timetable_rest_class(credentinals, classID, start_date, end_date):
     url = f"{SERVER_URL}/WebUntis/api/rest/view/v1/timetable/entries?start={start_date.isoformat()}&end={end_date.isoformat()}&format=1&resourceType=CLASS&resources={str(classID)}&periodTypes=&timetableType=STANDARD"    
     cookies = {
