@@ -73,6 +73,25 @@ async def time_grid_number(start, end):
             raise ValueError("Invalid end time")
     return grid_number_start, grid_number_end
 
+async def get_weekday_string(weekday):
+    match weekday:
+        case 0:
+            weekdayStr = "Monday"
+            weekdayStrShort = "mo"
+        case 1:
+            weekdayStr = "Tuesday"
+            weekdayStrShort = "tu"
+        case 2:
+            weekdayStr = "Wednesday"
+            weekdayStrShort = "we"
+        case 3:
+            weekdayStr = "Thursday"
+            weekdayStrShort = "th"
+        case 4:
+            weekdayStr = "Friday"
+            weekdayStrShort = "fr"
+    return weekdayStrShort, weekdayStr
+
 async def login(scname, server, token, username, time):
     """Login to WebUntis using OTP and get session cookie."""
     url = f"{server}/WebUntis/jsonrpc_intern.do"
@@ -319,6 +338,7 @@ async def get_timetable_rest_teacher(credentinals, teacherShort, start_date, end
                     startTime = datetime.datetime.fromisoformat(entry.get('duration').get('start')).time()
                     endTime = datetime.datetime.fromisoformat(entry.get('duration').get('end')).time()
                     weekday = datetime.datetime.fromisoformat(day.get('date')).weekday()
+                    weekdayStrShort, weekdayStr = await get_weekday_string(weekday)
                     start_lesson, end_lesson = await time_grid_number(startTime, endTime)
                     
                     ltype = entry.get('type')
@@ -332,22 +352,7 @@ async def get_timetable_rest_teacher(credentinals, teacherShort, start_date, end
                     if not parsed_entry.get("class", None):
                         parsed_entry["class"] = []
                     parsed_entry["class"].append(class_name)
-                    match weekday:
-                        case 0:
-                            weekdayStr = "Monday"
-                            weekdayStrShort = "mo"
-                        case 1:
-                            weekdayStr = "Tuesday"
-                            weekdayStrShort = "tu"
-                        case 2:
-                            weekdayStr = "Wednesday"
-                            weekdayStrShort = "we"
-                        case 3:
-                            weekdayStr = "Thursday"
-                            weekdayStrShort = "th"
-                        case 4:
-                            weekdayStr = "Friday"
-                            weekdayStrShort = "fr"
+                    
                     for lessonNumber in range(start_lesson, end_lesson + 1):
                         timetable[weekdayStrShort][lessonNumber] = parsed_entry
                     print('Found ' + parsed_entry.get("subjectLong") + ' in class ' + class_name + ' in ' + parsed_entry.get("room") + ' on ' + weekdayStr)
@@ -449,6 +454,7 @@ async def get_timetable_rest_room(credentinals, roomNumber, start_date, end_date
                     startTime = datetime.datetime.fromisoformat(entry.get('duration').get('start')).time()
                     endTime = datetime.datetime.fromisoformat(entry.get('duration').get('end')).time()
                     weekday = datetime.datetime.fromisoformat(day.get('date')).weekday()
+                    weekdayStrShort, weekdayStr = await get_weekday_string(weekday)
                     start_lesson, end_lesson = await time_grid_number(startTime, endTime)
                     
                     ltype = entry.get('type')
@@ -462,22 +468,7 @@ async def get_timetable_rest_room(credentinals, roomNumber, start_date, end_date
                     if not parsed_entry.get("class", None):
                         parsed_entry["class"] = []
                     parsed_entry["class"].append(class_name)
-                    match weekday:
-                        case 0:
-                            weekdayStr = "Monday"
-                            weekdayStrShort = "mo"
-                        case 1:
-                            weekdayStr = "Tuesday"
-                            weekdayStrShort = "tu"
-                        case 2:
-                            weekdayStr = "Wednesday"
-                            weekdayStrShort = "we"
-                        case 3:
-                            weekdayStr = "Thursday"
-                            weekdayStrShort = "th"
-                        case 4:
-                            weekdayStr = "Friday"
-                            weekdayStrShort = "fr"
+                    
                     for lessonNumber in range(start_lesson, end_lesson + 1):
                         timetable[weekdayStrShort][lessonNumber] = parsed_entry
                     print('Found ' + parsed_entry.get("subjectLong") + ' in class ' + class_name + ' with ' + parsed_entry.get("teacher") + ' on ' + weekdayStr)
@@ -710,8 +701,8 @@ async def main():
         monday = today - datetime.timedelta(days=today.weekday())
         friday = monday + datetime.timedelta(days=4)
         print(f"Fetching timetable from {monday} to {friday}...")
-        timetable_data = await get_timetable_rest_room(credentinals, 'B305', monday, friday)
-        #timetable_data = await get_timetable_rest_teacher(credentinals, 'JANM', monday, friday)
+        #timetable_data = await get_timetable_rest_room(credentinals, 'A313', monday, friday)
+        timetable_data = await get_timetable_rest_teacher(credentinals, 'HAIK', monday, friday)
         with open('timetable2.json', 'w', encoding='utf-8') as f:
             json.dump(timetable_data, f, ensure_ascii=False, indent=4)
         print("Timetable saved to timetable2.json")
