@@ -68,13 +68,6 @@ def init_db(corser):
                 ON timetable_entries(fetched_at) WITH SYSTEM VERSIONING;
         """)
 
-
-def store_lessons(corser, lessons):
-        for c in lessons:
-            # TODO: insert in db
-            continue
-
-
 def store_timetable_entries(corser, class_id, entries):
         for e in entries:
             # TODO: insert in db
@@ -123,7 +116,6 @@ def store_timetable_entries(corser, class_id, entries):
                 room_id
             ))
             continue
-
 
 def get_stored_last_update(corser):
     row = corser.execute(
