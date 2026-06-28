@@ -93,6 +93,50 @@ def store_lessons(corser, lessons):
 def store_timetable_entries(corser, class_id, entries):
         for e in entries:
             # TODO: insert in db
+            teacher_id = None
+            subject_id = None
+            room_id = None
+            if e.get('teacher'):
+                corser.execute(
+                    "INSERT INTO teachers (short_name, long_name) VALUES (%s, %s) ON DUPLICATE SELECT id FROM teachers WHERE short_name = %s",
+                    (e['teacher'], e.get('teacherLong'), e['teacher'])
+                )
+                if corser.lastrowid:
+                    teacher_id = corser.lastrowid
+                else:
+                    teacher_id =  corser.fetchone()[0]
+            if e.get('subject'):
+                corser.execute(
+                    "INSERT INTO subjects (short_name, long_name) VALUES (%s, %s) ON DUPLICATE SELECT id FROM subjects WHERE short_name = %s",
+                    (e['subject'], e.get('subjectLong'), e['subject'])
+                )
+                if corser.lastrowid:
+                    subject_id = corser.lastrowid
+                else:
+                    subject_id =  corser.fetchone()[0]
+            if e.get('room'):
+                corser.execute(
+                    "INSERT INTO rooms (short_name, long_name) VALUES (%s, %s) ON DUPLICATE SELECT id FROM rooms WHERE short_name = %s",
+                    (e['room'], e.get('roomLong'), e['room'])
+                )
+                if corser.lastrowid:
+                    room_id = corser.lastrowid
+                else:
+                    room_id =  corser.fetchone()[0]
+            sql = """-- sql\n INSERT INTO timetable_entries (class_id, date, period_start, period_end, type, status, status_detail, subject, teacher, room) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            corser.execute(sql, (
+                class_id,
+                e['date'],
+                e['startTime'],
+                e['endTime'],
+                e['type'],
+                e['status'],
+                e.get('statusDetail'),
+                subject_id,
+                teacher_id,
+                room_id
+            ))
             continue
 
 
