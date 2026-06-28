@@ -15,10 +15,9 @@ def init_db(corser):
     corser.execute("USE webuntis")
     corser.execute("""-- sql
         CREATE TABLE IF NOT EXISTS classes (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INT PRIMARY KEY,
             short_name VARCHAR(255) NOT NULL,
             long_name VARCHAR(255),
-            external_key VARCHAR(255),
             fetched_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         ) WITH SYSTEM VERSIONING
     """)
@@ -80,30 +79,45 @@ def init_db(corser):
             ON timetable_entries(fetched_at)
     """)
 
-def store_timetable_entries(corser, class_id, entries):
+def store_timetable_entries(corser, conn, class_id, entries):
         for e in entries:
             # TODO: insert in db
             teacher_id = None
             subject_id = None
             room_id = None
             if e.get('teacher'):
-                corser.execute(
-                    "INSERT INTO teachers (short_name, long_name) VALUES (%s, %s) ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)",
-                    (e.get('teacher'), e.get('teacherLong'))
-                )
-                teacher_id = corser.lastrowid
+                corser.execute("SELECT id FROM teachers WHERE short_name = %s", (e.get('teacher'),))
+                row = corser.fetchone()
+                if row:
+                    teacher_id = row[0]
+                else:
+                    corser.execute(
+                        "INSERT INTO teachers (short_name, long_name) VALUES (%s, %s) ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)",
+                        (e.get('teacher'), e.get('teacherLong'))
+                    )
+                    teacher_id = corser.lastrowid
             if e.get('subject'):
-                corser.execute(
-                    "INSERT INTO subjects (short_name, long_name) VALUES (%s, %s) ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)",
-                    (e.get('subject'), e.get('subjectLong'))
-                )
-                subject_id = corser.lastrowid
+                corser.execute("SELECT id FROM subjects WHERE short_name = %s", (e.get('subject'),))
+                row = corser.fetchone()
+                if row:
+                    subject_id = row[0]
+                else:
+                    corser.execute(
+                        "INSERT INTO subjects (short_name, long_name) VALUES (%s, %s) ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)",
+                        (e.get('subject'), e.get('subjectLong'))
+                    )
+                    subject_id = corser.lastrowid
             if e.get('room'):
-                corser.execute(
-                    "INSERT INTO rooms (short_name, long_name) VALUES (%s, %s) ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)",
-                    (e.get('room'), e.get('roomLong'))
-                )
-                room_id = corser.lastrowid
+                corser.execute("SELECT id FROM rooms WHERE short_name = %s", (e.get('room'),))
+                row = corser.fetchone()
+                if row:
+                    room_id = row[0]
+                else:
+                    corser.execute(
+                        "INSERT INTO rooms (short_name, long_name) VALUES (%s, %s) ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)",
+                        (e.get('room'), e.get('roomLong'))
+                    )
+                    room_id = corser.lastrowid
             corser.execute(
                 "SELECT id FROM timetable_entries WHERE upstream_id = %s AND class_id = %s",
                 (e.get('upstreamId'), class_id)
@@ -127,21 +141,23 @@ def store_timetable_entries(corser, class_id, entries):
                 teacher_id,
                 room_id
             ))
+            conn.commit()
             continue
 
-def get_stored_last_update(corser):
+def get_stored_last_update(corser, conn):
     row = corser.execute(
         "SELECT last_update_timestamp FROM last_update WHERE id = 1"
     ).fetchone()
     return datetime.datetime.fromisoformat(row[0]) if row else None
 
-def set_stored_last_update(corser, dt):
+def set_stored_last_update(corser, conn, dt):
     corser.execute(
         "INSERT OR REPLACE INTO last_update (id, last_update_timestamp) VALUES (1, ?)",
         (dt.isoformat(),),
     )
+    conn.commit()
 
-def fetch_and_store_class_timetable(corser, untis_client, class_id, start_date, end_date):
+def fetch_and_store_class_timetable(corser, conn, untis_client, class_id, start_date, end_date):
     # Fetch timetable from WebUntis API
     raw_data = untis_client.get_raw_timetable_rest_class(class_id, start_date, end_date)
     
@@ -168,12 +184,18 @@ def fetch_and_store_class_timetable(corser, untis_client, class_id, start_date, 
                 'roomLong': parsed.get('roomLong'),
             })
     
-    store_timetable_entries(corser, class_id, flat_entries)
-def fetch_and_store_timetable(corser, untis_client, start_date, end_date):
+    store_timetable_entries(corser, conn, class_id, flat_entries)
+def fetch_and_store_timetable(corser, conn, untis_client, start_date, end_date):
     classes = untis_client.get_classes()
     for class_info in classes.get("result", []):
         class_id = class_info['id']
-        fetch_and_store_class_timetable(corser, untis_client, class_id, start_date, end_date)
+        corser.execute(
+            "INSERT INTO classes (id, short_name, long_name) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)",
+            (class_info['id'], class_info['name'], class_info.get('longName'))
+        )
+        conn.commit()
+
+        fetch_and_store_class_timetable(corser, conn, untis_client, class_id, start_date, end_date)
 
 async def main():
     conn = mysql.connector.connect(
@@ -187,7 +209,8 @@ async def main():
     monday = today - datetime.timedelta(days=today.weekday())
     friday = monday + datetime.timedelta(days=4)
     init_db(corser)
-    fetch_and_store_timetable(corser, untis_client, monday, friday)
+    fetch_and_store_timetable(corser, conn, untis_client, monday, friday)
+    conn.commit()
     return 0
 
 
