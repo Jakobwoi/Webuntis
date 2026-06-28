@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import asyncio
 import datetime
 import json
 import requests
@@ -15,11 +14,11 @@ SCHOOL = login_config.SCHOOL        # WebUntis school name
 USERNAME = login_config.USERNAME # WebUntis username
 SERVER_URL = login_config.SERVER_URL  # WebUntis server URL
 
-async def get_otp_token():
+def get_otp_token():
     totp = pyotp.TOTP(KEY, interval=30)
     return totp.now()
 
-async def time_grid_number(start, end):
+def time_grid_number(start, end):
     """Calculate the time grid number for WebUntis API."""
     match start:
         case _ if start <= datetime.time(hour=8, minute=0):
@@ -73,7 +72,7 @@ async def time_grid_number(start, end):
             raise ValueError("Invalid end time")
     return grid_number_start, grid_number_end
 
-async def get_weekday_string(weekday):
+def get_weekday_string(weekday):
     match weekday:
         case 0:
             weekdayStr = "Monday"
@@ -92,7 +91,6 @@ async def get_weekday_string(weekday):
             weekdayStrShort = "fr"
     return weekdayStrShort, weekdayStr
 
-
 def create_empty_timetable():
     days = ["mo", "tu", "we", "th", "fr"]
     timetable = {}
@@ -100,7 +98,7 @@ def create_empty_timetable():
         timetable[day] = {lesson: {} for lesson in range(1, 12)}
     return timetable
 
-async def login(scname, server, token, username, time):
+def login(scname, server, token, username, time):
     """Login to WebUntis using OTP and get session cookie."""
     url = f"{server}/WebUntis/jsonrpc_intern.do"
     headers = {'Content-Type': 'application/json'}
@@ -147,7 +145,7 @@ async def login(scname, server, token, username, time):
     
     raise Exception("Failed to login: No session cookie found")
 
-async def get_timetable(jsessionid, start_date, end_date, element_type, element_id):
+def get_timetable(jsessionid, start_date, end_date, element_type, element_id):
     """
     Fetch timetable data using JSON-RPC API.
     
@@ -197,7 +195,7 @@ async def get_timetable(jsessionid, start_date, end_date, element_type, element_
     response = requests.post(url, json=data, headers=headers)
     return response.json()
 
-async def get_classes(jsessionid):
+def get_classes(jsessionid):
     """Fetch all classes (Klassen) data."""
     url = f"{SERVER_URL}/WebUntis/jsonrpc.do"
     
@@ -216,7 +214,7 @@ async def get_classes(jsessionid):
     response = requests.post(url, json=data, headers=headers)
     return response.json()
 
-async def get_holidays(jsessionid):
+def get_holidays(jsessionid):
     """Fetch all holidays data."""
     url = f"{SERVER_URL}/WebUntis/jsonrpc.do"
     
@@ -235,7 +233,7 @@ async def get_holidays(jsessionid):
     response = requests.post(url, json=data, headers=headers)
     return response.json()
 
-async def get_timetable_rest_class(credentinals, classID, start_date, end_date):
+def get_timetable_rest_class(credentinals, classID, start_date, end_date):
     url = f"{SERVER_URL}/WebUntis/api/rest/view/v1/timetable/entries?start={start_date.isoformat()}&end={end_date.isoformat()}&format=1&resourceType=CLASS&resources={str(classID)}&periodTypes=&timetableType=STANDARD"    
     cookies = {
         'JSESSIONID': credentinals['jsessionid']
@@ -250,9 +248,9 @@ async def get_timetable_rest_class(credentinals, classID, start_date, end_date):
     #print(response.json())
     return response.json()
 
-async def get_timetable_rest_teacher(credentinals, teacherShort, start_date, end_date):
+def get_timetable_rest_teacher(credentinals, teacherShort, start_date, end_date):
     # Get all classes
-    classes_data = await get_classes(credentinals['jsessionid'])
+    classes_data = get_classes(credentinals['jsessionid'])
     timetable = create_empty_timetable()
     
     # Iterate through each class and search for lessons with the specified teacher
@@ -261,7 +259,7 @@ async def get_timetable_rest_teacher(credentinals, teacherShort, start_date, end
         
         class_id = klasse.get('id')
         class_name = klasse.get('name')
-        timetableClass = await get_timetable_rest_class(credentinals, class_id, start_date, end_date)
+        timetableClass = get_timetable_rest_class(credentinals, class_id, start_date, end_date)
         
         for day in timetableClass.get('days', []):
             for entry in day.get('gridEntries', []):
@@ -269,7 +267,7 @@ async def get_timetable_rest_teacher(credentinals, teacherShort, start_date, end
                     parsed_entry = {}
                     i = 1
                     while i <= 7:
-                        await parse_positionx(entry.get(f'position{i}'), parsed_entry)
+                        parse_positionx(entry.get(f'position{i}'), parsed_entry)
                         i += 1
                 except Exception as e:
                     print(f"Error parsing position {i}: {e}")
@@ -280,8 +278,8 @@ async def get_timetable_rest_teacher(credentinals, teacherShort, start_date, end
                     startTime = datetime.datetime.fromisoformat(entry.get('duration').get('start')).time()
                     endTime = datetime.datetime.fromisoformat(entry.get('duration').get('end')).time()
                     weekday = datetime.datetime.fromisoformat(day.get('date')).weekday()
-                    weekdayStrShort, weekdayStr = await get_weekday_string(weekday)
-                    start_lesson, end_lesson = await time_grid_number(startTime, endTime)
+                    weekdayStrShort, weekdayStr = get_weekday_string(weekday)
+                    start_lesson, end_lesson = time_grid_number(startTime, endTime)
                     
                     ltype = entry.get('type')
                     status = entry.get('status')                                                   
@@ -300,9 +298,9 @@ async def get_timetable_rest_teacher(credentinals, teacherShort, start_date, end
                     #print('Found ' + parsed_entry.get("subjectLong") + ' in class ' + class_name + ' in ' + parsed_entry.get("room") + ' on ' + weekdayStr)
     return timetable
 
-async def get_timetable_rest_room(credentinals, roomNumber, start_date, end_date):
+def get_timetable_rest_room(credentinals, roomNumber, start_date, end_date):
     # Get all classes
-    classes_data = await get_classes(credentinals['jsessionid'])
+    classes_data = get_classes(credentinals['jsessionid'])
     timetable = create_empty_timetable()
     
     # Iterate through each class and search for lessons with the specified teacher
@@ -311,7 +309,7 @@ async def get_timetable_rest_room(credentinals, roomNumber, start_date, end_date
         
         class_id = klasse.get('id')
         class_name = klasse.get('name')
-        timetableClass = await get_timetable_rest_class(credentinals, class_id, start_date, end_date)
+        timetableClass = get_timetable_rest_class(credentinals, class_id, start_date, end_date)
         
         for day in timetableClass.get('days', []):
             for entry in day.get('gridEntries', []):
@@ -319,7 +317,7 @@ async def get_timetable_rest_room(credentinals, roomNumber, start_date, end_date
                     parsed_entry = {}
                     i = 1
                     while i <= 7:
-                        await parse_positionx(entry.get(f'position{i}'), parsed_entry)
+                        parse_positionx(entry.get(f'position{i}'), parsed_entry)
                         i += 1
                 except Exception as e:
                     print(f"Error parsing position {i}: {e}")
@@ -330,8 +328,8 @@ async def get_timetable_rest_room(credentinals, roomNumber, start_date, end_date
                     startTime = datetime.datetime.fromisoformat(entry.get('duration').get('start')).time()
                     endTime = datetime.datetime.fromisoformat(entry.get('duration').get('end')).time()
                     weekday = datetime.datetime.fromisoformat(day.get('date')).weekday()
-                    weekdayStrShort, weekdayStr = await get_weekday_string(weekday)
-                    start_lesson, end_lesson = await time_grid_number(startTime, endTime)
+                    weekdayStrShort, weekdayStr = get_weekday_string(weekday)
+                    start_lesson, end_lesson = time_grid_number(startTime, endTime)
                     
                     ltype = entry.get('type')
                     status = entry.get('status')                                                   
@@ -353,7 +351,7 @@ async def get_timetable_rest_room(credentinals, roomNumber, start_date, end_date
                         print(f'Found in class {class_name} on {weekdayStr}')
     return timetable
 
-async def parse_timetable_rest(timetableJSON):
+def parse_timetable_rest(timetableJSON):
     timetable = create_empty_timetable()
     
     for day in timetableJSON.get('days', []):
@@ -371,9 +369,9 @@ async def parse_timetable_rest(timetableJSON):
                 continue
             
             weekday = datetime.datetime.fromisoformat(day.get('date', '')).weekday() if day.get('date') else 0
-            weekday_str_short, _ = await get_weekday_string(weekday)
+            weekday_str_short, _ = get_weekday_string(weekday)
             
-            start_lesson, end_lesson = await time_grid_number(start_time, end_time)
+            start_lesson, end_lesson = time_grid_number(start_time, end_time)
             
             parsed = {}
             for pos_num in range(1, 8):
@@ -420,7 +418,7 @@ async def parse_timetable_rest(timetableJSON):
     
     return timetable
 
-async def parse_positionx(raw_data, timetable_entry):
+def parse_positionx(raw_data, timetable_entry):
     if not raw_data:
         return timetable_entry
     
@@ -463,7 +461,7 @@ async def parse_positionx(raw_data, timetable_entry):
     
     return timetable_entry
 
-async def last_update(credentinals):
+def last_update(credentinals):
     url = f"{SERVER_URL}/WebUntis/main.do"
     cookies = {
         'JSESSIONID': credentinals['jsessionid']
@@ -482,30 +480,30 @@ async def last_update(credentinals):
     
     return last_update
 
-async def main():
+def main():
     try:
         # Generate OTP token
-        token = await get_otp_token()
+        token = get_otp_token()
         
         # Get current timestamp in milliseconds
         current_time = int(datetime.datetime.now().timestamp() * 1000)
         
         # Login to WebUntis
         print("Logging in to WebUntis...")
-        credentinals = await login(SCHOOL, SERVER_URL, token, USERNAME, current_time)
+        credentinals = login(SCHOOL, SERVER_URL, token, USERNAME, current_time)
         jsessionid = credentinals['jsessionid']
-        last_update_data = await last_update(credentinals)
+        last_update_data = last_update(credentinals)
         print(f"Login successful. Session ID: {jsessionid}")
         today = datetime.date.today()
         monday = today - datetime.timedelta(days=today.weekday())
         friday = monday + datetime.timedelta(days=4)
         print(f"Fetching timetable from {monday} to {friday}...")
-        #timetable_data = await get_timetable_rest_room(credentinals, 'A313', monday, friday)
-        timetable_data = await get_timetable_rest_teacher(credentinals, 'STEL', monday, friday)
+        #timetable_data = get_timetable_rest_room(credentinals, 'A313', monday, friday)
+        timetable_data = get_timetable_rest_teacher(credentinals, 'STEL', monday, friday)
         with open('timetable2.json', 'w', encoding='utf-8') as f:
             json.dump(timetable_data, f, ensure_ascii=False, indent=4)
         print("Timetable saved to timetable2.json")
-        timetable_data = await get_timetable_rest_class(credentinals, 4434, monday, friday)
+        timetable_data = get_timetable_rest_class(credentinals, 4434, monday, friday)
         with open('timetable.json', 'w', encoding='utf-8') as f:
             json.dump(timetable_data, f, ensure_ascii=False, indent=4)
         print("Timetable saved to timetable.json")
@@ -513,4 +511,4 @@ async def main():
         print(f"Error: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
