@@ -392,25 +392,9 @@ class WebUntisClient():
                 parsed = {}
                 for pos_num in range(1, 8):
                     pos_list = entry.get(f'position{pos_num}', [])
-                    for pos in pos_list:
-                        current = pos.get('current')
-                        if not current:
-                            continue
-                        ptype = current.get('type')
-                        if ptype == 'TEACHER':
-                            parsed['teacher_short'] = current.get('shortName')
-                            parsed['teacher_long'] = current.get('longName')
-                        elif ptype == 'SUBJECT':
-                            parsed['subject_short'] = current.get('shortName')
-                            parsed['subject_long'] = current.get('longName')
-                        elif ptype == 'ROOM':
-                            parsed['room_short'] = current.get('shortName')
-                            parsed['room_long'] = current.get('longName')
-                        elif ptype == 'CLASS':
-                            parsed['class_short'] = current.get('shortName')
-                            parsed['class_long'] = current.get('longName')
+                    parsed = self.parse_positionx(pos_list, parsed)
                 
-                class_name = day.get('resource', {}).get('shortName') or parsed.get('class_short')
+                class_name = day.get('resource', {}).get('shortName')
                 
                 ltype = entry.get('type')
                 status = entry.get('status')
@@ -421,12 +405,12 @@ class WebUntisClient():
                         continue
                     timetable[weekday_str_short][lesson] = {
                         'class': class_name,
-                        'subject': parsed.get('subject_short'),
-                        'subjectLong': parsed.get('subject_long'),
-                        'room': parsed.get('room_short'),
-                        'roomLong': parsed.get('room_long'),
-                        'teacher': parsed.get('teacher_long'),
-                        'teacherShort': parsed.get('teacher_short'),
+                        'subject': parsed.get('subject'),
+                        'subjectLong': parsed.get('subjectLong'),
+                        'room': parsed.get('room'),
+                        'roomLong': parsed.get('roomLong'),
+                        'teacher': parsed.get('teacher'),
+                        'teacherShort': parsed.get('teacherShort'),
                         'type': ltype,
                         'status': status,
                         'statusDetail': status_detail,
