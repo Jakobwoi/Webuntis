@@ -144,6 +144,12 @@ class WebUntisClient():
             case 4:
                 weekdayStr = "Friday"
                 weekdayStrShort = "fr"
+            case 5:
+                weekdayStr = "Saturday"
+                weekdayStrShort = "sa"
+            case 6:
+                weekdayStr = "Sunday"
+                weekdayStrShort = "su"
             case _:
                 raise ValueError("Invalid weekday")
             
