@@ -92,6 +92,14 @@ async def get_weekday_string(weekday):
             weekdayStrShort = "fr"
     return weekdayStrShort, weekdayStr
 
+
+def create_empty_timetable():
+    days = ["mo", "tu", "we", "th", "fr"]
+    timetable = {}
+    for day in days:
+        timetable[day] = {lesson: {} for lesson in range(1, 12)}
+    return timetable
+
 async def login(scname, server, token, username, time):
     """Login to WebUntis using OTP and get session cookie."""
     url = f"{server}/WebUntis/jsonrpc_intern.do"
@@ -245,73 +253,7 @@ async def get_timetable_rest_class(credentinals, classID, start_date, end_date):
 async def get_timetable_rest_teacher(credentinals, teacherShort, start_date, end_date):
     # Get all classes
     classes_data = await get_classes(credentinals['jsessionid'])
-    timetable = {
-        "mo": {
-            1: {},
-            2: {},
-            3: {},
-            4: {},
-            5: {},
-            6: {},
-            7: {},
-            8: {},
-            9: {},
-            10: {},
-            11: {}
-        },
-        "tu": {
-            1: {},
-            2: {},
-            3: {},
-            4: {},
-            5: {},
-            6: {},
-            7: {},
-            8: {},
-            9: {},
-            10: {},
-            11: {}
-        },
-        "we": {
-            1: {},
-            2: {},
-            3: {},
-            4: {},
-            5: {},
-            6: {},
-            7: {},
-            8: {},
-            9: {},
-            10: {},
-            11: {}
-        },
-        "th": {
-            1: {},
-            2: {},
-            3: {},
-            4: {},
-            5: {},
-            6: {},
-            7: {},
-            8: {},
-            9: {},
-            10: {},
-            11: {}
-        },
-        "fr": {
-            1: {},
-            2: {},
-            3: {},
-            4: {},
-            5: {},
-            6: {},
-            7: {},
-            8: {},
-            9: {},
-            10: {},
-            11: {}
-        }
-    }
+    timetable = create_empty_timetable()
     
     # Iterate through each class and search for lessons with the specified teacher
     class_id = None
@@ -361,73 +303,7 @@ async def get_timetable_rest_teacher(credentinals, teacherShort, start_date, end
 async def get_timetable_rest_room(credentinals, roomNumber, start_date, end_date):
     # Get all classes
     classes_data = await get_classes(credentinals['jsessionid'])
-    timetable = {
-        "mo": {
-            1: {},
-            2: {},
-            3: {},
-            4: {},
-            5: {},
-            6: {},
-            7: {},
-            8: {},
-            9: {},
-            10: {},
-            11: {}
-        },
-        "tu": {
-            1: {},
-            2: {},
-            3: {},
-            4: {},
-            5: {},
-            6: {},
-            7: {},
-            8: {},
-            9: {},
-            10: {},
-            11: {}
-        },
-        "we": {
-            1: {},
-            2: {},
-            3: {},
-            4: {},
-            5: {},
-            6: {},
-            7: {},
-            8: {},
-            9: {},
-            10: {},
-            11: {}
-        },
-        "th": {
-            1: {},
-            2: {},
-            3: {},
-            4: {},
-            5: {},
-            6: {},
-            7: {},
-            8: {},
-            9: {},
-            10: {},
-            11: {}
-        },
-        "fr": {
-            1: {},
-            2: {},
-            3: {},
-            4: {},
-            5: {},
-            6: {},
-            7: {},
-            8: {},
-            9: {},
-            10: {},
-            11: {}
-        }
-    }
+    timetable = create_empty_timetable()
     
     # Iterate through each class and search for lessons with the specified teacher
     class_id = None
@@ -478,73 +354,7 @@ async def get_timetable_rest_room(credentinals, roomNumber, start_date, end_date
     return timetable
 
 async def parse_timetable_rest(timetableJSON):
-    timetable = {
-        "mo": {
-            1: {},
-            2: {},
-            3: {},
-            4: {},
-            5: {},
-            6: {},
-            7: {},
-            8: {},
-            9: {},
-            10: {},
-            11: {}
-        },
-        "tu": {
-            1: {},
-            2: {},
-            3: {},
-            4: {},
-            5: {},
-            6: {},
-            7: {},
-            8: {},
-            9: {},
-            10: {},
-            11: {}
-        },
-        "we": {
-            1: {},
-            2: {},
-            3: {},
-            4: {},
-            5: {},
-            6: {},
-            7: {},
-            8: {},
-            9: {},
-            10: {},
-            11: {}
-        },
-        "th": {
-            1: {},
-            2: {},
-            3: {},
-            4: {},
-            5: {},
-            6: {},
-            7: {},
-            8: {},
-            9: {},
-            10: {},
-            11: {}
-        },
-        "fr": {
-            1: {},
-            2: {},
-            3: {},
-            4: {},
-            5: {},
-            6: {},
-            7: {},
-            8: {},
-            9: {},
-            10: {},
-            11: {}
-        }
-    }
+    timetable = create_empty_timetable()
     
     for day in timetableJSON.get('days', []):
         for entry in day.get('gridEntries', []):
