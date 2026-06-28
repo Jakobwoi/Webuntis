@@ -6,11 +6,15 @@ import asyncio
 import datetime
 import sys
 import mysql.connector 
-import webuntis_api as webuntis
+from webuntis_api import WebUntisClient
 
 
 
 def init_db(corser):
+    corser.execute("""-- sql
+            CREATE DATABASE IF NOT EXISTS webuntis;
+            USE webuntis;
+        """)
     corser.execute("""-- sql
             CREATE TABLE IF NOT EXISTS classes (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -18,22 +22,22 @@ def init_db(corser):
                 long_name VARCHAR(255),
                 external_key VARCHAR(255),
                 fetched_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
+            ) WITH SYSTEM VERSIONING;
             CREATE TABLE IF NOT EXISTS subjects (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 short_name VARCHAR(255) NOT NULL,
                 long_name VARCHAR(255)
-            );
+            ) WITH SYSTEM VERSIONING;
             CREATE TABLE IF NOT EXISTS teachers (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 short_name VARCHAR(255) NOT NULL,
                 long_name VARCHAR(255)
-            );
+            ) WITH SYSTEM VERSIONING;
             CREATE TABLE IF NOT EXISTS rooms (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 short_name VARCHAR(255) NOT NULL,
                 long_name VARCHAR(255)
-            );
+            ) WITH SYSTEM VERSIONING;
             CREATE TABLE IF NOT EXISTS timetable_entries (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 class_id INT NOT NULL,
@@ -51,36 +55,17 @@ def init_db(corser):
                 FOREIGN KEY (teacher) REFERENCES teachers(id),
                 FOREIGN KEY (room) REFERENCES rooms(id),
                 FOREIGN KEY (class_id) REFERENCES classes(id)
-            );
-            CREATE TABLE IF NOT EXISTS timetable_changes (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                lesson_id INT NOT NULL,
-                change_type VARCHAR(255) NOT NULL,
-                change_time TIMESTAMP NOT NULL,
-                old_type VARCHAR(255),
-                old_status VARCHAR(255),
-                old_status_detail VARCHAR(255),
-                old_subject INT,
-                old_teacher INT,
-                old_room INT,
-                new_type VARCHAR(255),
-                new_status VARCHAR(255),
-                new_status_detail VARCHAR(255),
-                new_subject INT,
-                new_teacher INT,
-                new_room INT,
-                FOREIGN KEY (lesson_id) REFERENCES timetable_entries(id)
-            );
+            ) WITH SYSTEM VERSIONING;
             CREATE TABLE IF NOT EXISTS last_update (
                 id INT PRIMARY KEY CHECK (id = 1),
                 last_update_timestamp TIMESTAMP NOT NULL,
                 checked_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
+            ) WITH SYSTEM VERSIONING;
 
             CREATE INDEX IF NOT EXISTS idx_timetable_class_date
                 ON timetable_entries(class_id, date);
             CREATE INDEX IF NOT EXISTS idx_timetable_fetched
-                ON timetable_entries(fetched_at);
+                ON timetable_entries(fetched_at) WITH SYSTEM VERSIONING;
         """)
 
 
