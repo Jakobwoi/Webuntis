@@ -133,13 +133,45 @@ def get_stored_last_update(corser):
     ).fetchone()
     return datetime.datetime.fromisoformat(row[0]) if row else None
 
-
 def set_stored_last_update(corser, dt):
     corser.execute(
         "INSERT OR REPLACE INTO last_update (id, last_update_timestamp) VALUES (1, ?)",
         (dt.isoformat(),),
     )
 
+def fetch_and_store_class_timetable(corser, untis_client, class_id, start_date, end_date):
+    # Fetch timetable from WebUntis API
+    raw_data = untis_client.get_raw_timetable_rest_class(class_id, start_date, end_date)
+    
+    flat_entries = []
+    for day in raw_data.get('days', []):
+        for entry in day.get('gridEntries', []):
+            parsed = {}
+            for pos_num in range(1, 8):
+                untis_client.parse_positionx(entry.get(f'position{pos_num}', []), parsed)
+            dur = entry.get('duration', {})
+            flat_entries.append({
+                'upstreamId': (entry.get('ids') or [None])[0],
+                'date': day['date'],
+                'startTime': dur.get('start'),
+                'endTime': dur.get('end'),
+                'type': entry.get('type'),
+                'status': entry.get('status'),
+                'statusDetail': entry.get('statusDetail'),
+                'teacher': (parsed.get('teacherShort') or [None])[0],
+                'teacherLong': (parsed.get('teacher') or [None])[0],
+                'subject': parsed.get('subject'),
+                'subjectLong': parsed.get('subjectLong'),
+                'room': parsed.get('room'),
+                'roomLong': parsed.get('roomLong'),
+            })
+    
+    store_timetable_entries(corser, class_id, flat_entries)
+def fetch_and_store_timetable(corser, untis_client, start_date, end_date):
+    classes = untis_client.get_classes()
+    for class_info in classes.get("result", []):
+        class_id = class_info['id']
+        fetch_and_store_class_timetable(corser, untis_client, class_id, start_date, end_date)
 
 async def main():
     conn = mysql.connector.connect(
