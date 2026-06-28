@@ -358,123 +358,109 @@ async def parse_timetable_rest(timetableJSON):
     
     for day in timetableJSON.get('days', []):
         for entry in day.get('gridEntries', []):
-            startTime = datetime.datetime.fromisoformat(entry.get('duration').get('start')).time()
-            endTime = datetime.datetime.fromisoformat(entry.get('duration').get('end')).time()
-            weekday = datetime.datetime.fromisoformat(day.get('date')).weekday()
-            match weekday:
-                    case 0:
-                        weekdayStr = "Monday"
-                        weekdayStrShort = "mo"
-                    case 1:
-                        weekdayStr = "Tuesday"
-                        weekdayStrShort = "tu"
-                    case 2:
-                        weekdayStr = "Wednesday"
-                        weekdayStrShort = "we"
-                    case 3:
-                        weekdayStr = "Thursday"
-                        weekdayStrShort = "th"
-                    case 4:
-                        weekdayStr = "Friday"
-                        weekdayStrShort = "fr"
-            subjectShort = entry.get('position2')[0].get('current').get('shortName')
-            subjectLong = entry.get('position2')[0].get('current').get('longName')
-            start_lesson, end_lesson = await time_grid_number(startTime, endTime)
-            className = day.get("resource").get("shortName")
-            room = entry.get('position3')[0].get('current').get('shortName')
+            dur = entry.get('duration', {})
+            start = dur.get('start')
+            end = dur.get('end')
+            if not start or not end:
+                continue
+            
+            try:
+                start_time = datetime.datetime.fromisoformat(start).time()
+                end_time = datetime.datetime.fromisoformat(end).time()
+            except ValueError:
+                continue
+            
+            weekday = datetime.datetime.fromisoformat(day.get('date', '')).weekday() if day.get('date') else 0
+            weekday_str_short, _ = await get_weekday_string(weekday)
+            
+            start_lesson, end_lesson = await time_grid_number(start_time, end_time)
+            
+            parsed = {}
+            for pos_num in range(1, 8):
+                pos_list = entry.get(f'position{pos_num}', [])
+                for pos in pos_list:
+                    current = pos.get('current')
+                    if not current:
+                        continue
+                    ptype = current.get('type')
+                    if ptype == 'TEACHER':
+                        parsed['teacher_short'] = current.get('shortName')
+                        parsed['teacher_long'] = current.get('longName')
+                    elif ptype == 'SUBJECT':
+                        parsed['subject_short'] = current.get('shortName')
+                        parsed['subject_long'] = current.get('longName')
+                    elif ptype == 'ROOM':
+                        parsed['room_short'] = current.get('shortName')
+                        parsed['room_long'] = current.get('longName')
+                    elif ptype == 'CLASS':
+                        parsed['class_short'] = current.get('shortName')
+                        parsed['class_long'] = current.get('longName')
+            
+            class_name = day.get('resource', {}).get('shortName') or parsed.get('class_short')
+            
             ltype = entry.get('type')
             status = entry.get('status')
+            status_detail = entry.get('statusDetail') if status != 'REGULAR' else None
             
-            timetable[weekdayStrShort][start_lesson]["class"] = className
-            timetable[weekdayStrShort][start_lesson]["subject"] = subjectShort
-            timetable[weekdayStrShort][start_lesson]["subjectLong"] = subjectLong
-            timetable[weekdayStrShort][start_lesson]["room"] = room
-            timetable[weekdayStrShort][start_lesson]["type"] = ltype
-            timetable[weekdayStrShort][start_lesson]["status"] = status
-            if status != "REGULAR":
-                statusDetail = entry.get('statusDetail')
-            if entry.get('position1')[0].get('current'):
-                
-                teacher = entry.get('position1')[0].get('current').get('longName')
-                teacherShort = entry.get('position1')[0].get('current').get('shortName')
-                timetable[weekdayStrShort][start_lesson]["teacher"] = teacher
-                timetable[weekdayStrShort][start_lesson]["teacherShort"] = teacherShort
-                if status != "REGULAR":
-                    timetable[weekdayStrShort][start_lesson]["statusDetail"] = statusDetail
-                
-                if start_lesson == end_lesson:
-                    lesson_str = f"lesson {start_lesson}"
-                else:
-                    if end_lesson - start_lesson == 1:
-                        lesson_str = f"lessons {start_lesson} and {end_lesson}"
-                    else:
-                        lesson_str = f"lessons {start_lesson} to {end_lesson}"
-                    timetable[weekdayStrShort][end_lesson]["teacher"] = teacherShort
-                    timetable[weekdayStrShort][end_lesson]["teacherShort"] = teacherShort
-                    timetable[weekdayStrShort][end_lesson]["class"] = className
-                    timetable[weekdayStrShort][end_lesson]["subject"] = subjectShort
-                    timetable[weekdayStrShort][end_lesson]["room"] = room
-            elif entry.get("position1")[0].get("removed"):
-                print("placeholder")
-                
+            for lesson in range(start_lesson, end_lesson + 1):
+                if lesson > 11:
+                    continue
+                timetable[weekday_str_short][lesson] = {
+                    'class': class_name,
+                    'subject': parsed.get('subject_short'),
+                    'subjectLong': parsed.get('subject_long'),
+                    'room': parsed.get('room_short'),
+                    'roomLong': parsed.get('room_long'),
+                    'teacher': parsed.get('teacher_long'),
+                    'teacherShort': parsed.get('teacher_short'),
+                    'type': ltype,
+                    'status': status,
+                    'statusDetail': status_detail,
+                }
+    
     return timetable
 
 async def parse_positionx(raw_data, timetable_entry):
-    index = 0
     if not raw_data:
         return timetable_entry
-    while index < len(raw_data):
-        if raw_data[index].get('current'):
-            if raw_data[index]['current'].get('type'):
-                match raw_data[index]['current']['type']:
-                    case 'TEACHER':
-                        if not timetable_entry.get("teacher", None):
-                            timetable_entry["teacher"] = []
-                            timetable_entry["teacherShort"] = []
-                            timetable_entry["teacherStatus"] = []
-                        timetable_entry["teacher"].append(raw_data[index]['current']['longName'])
-                        timetable_entry["teacherShort"].append(raw_data[index]['current']['shortName'])
-                        timetable_entry["teacherStatus"].append(raw_data[index]['current'].get('status'))
-                    case 'CLASS':
-                        if not timetable_entry.get("class", None):
-                            timetable_entry["class"] = []
-                            timetable_entry["classStatus"] = []
-                        timetable_entry["class"].append(raw_data[index]['current']['shortName'])
-                        timetable_entry["classStatus"].append(raw_data[index]['current'].get('status'))
-
-                    case 'SUBJECT':
-                        timetable_entry["subject"] = raw_data[index]['current']['shortName']
-                        timetable_entry["subjectLong"] = raw_data[index]['current']['longName']
-                        timetable_entry["subjectStatus"] = raw_data[index]['current'].get('status')
-                    case 'ROOM':
-                        timetable_entry["room"] = raw_data[index]['current']['shortName']
-                        timetable_entry["roomLong"] = raw_data[index]['current']['longName']
-
-        if raw_data[index].get('removed'):
-            if raw_data[index]["removed"].get('type'):
-                match raw_data[index]["removed"]['type']:
-                    case 'TEACHER':
-                        if not timetable_entry.get("oldteacher", None):
-                            timetable_entry["oldteacher"] = []
-                            timetable_entry["oldteacherShort"] = []
-                            timetable_entry["oldteacherStatus"] = []
-                        timetable_entry["oldteacher"].append(raw_data[index]["removed"]['longName'])
-                        timetable_entry["oldteacherShort"].append(raw_data[index]["removed"]['shortName'])
-                        timetable_entry["oldteacherStatus"].append(raw_data[index]["removed"].get('status'))
-                    case 'CLASS':
-                        if not timetable_entry.get("oldclass", None):
-                            timetable_entry["oldclass"] = []
-                            timetable_entry["oldclassStatus"] = []
-                        timetable_entry["oldclass"].append(raw_data[index]["removed"]['shortName'])
-                        timetable_entry["oldclassStatus"].append("REMOVED")
-                    case 'SUBJECT':
-                        timetable_entry["oldsubject"] = raw_data[index]["removed"]['shortName']
-                        timetable_entry["oldsubjectLong"] = raw_data[index]["removed"]['longName']
-                        timetable_entry["oldsubjectStatus"] = "REMOVED"
-                    case 'ROOM':
-                        timetable_entry["oldroom"] = raw_data[index]["removed"]['shortName']
-                        timetable_entry["oldroomLong"] = raw_data[index]["removed"]['longName']
-        index += 1
+    
+    for item in raw_data:
+        current = item.get('current')
+        if current:
+            ptype = current.get('type')
+            if ptype == 'TEACHER':
+                timetable_entry.setdefault('teacher', []).append(current.get('longName'))
+                timetable_entry.setdefault('teacherShort', []).append(current.get('shortName'))
+                timetable_entry.setdefault('teacherStatus', []).append(current.get('status'))
+            elif ptype == 'CLASS':
+                timetable_entry.setdefault('class', []).append(current.get('shortName'))
+                timetable_entry.setdefault('classStatus', []).append(current.get('status'))
+            elif ptype == 'SUBJECT':
+                timetable_entry['subject'] = current.get('shortName')
+                timetable_entry['subjectLong'] = current.get('longName')
+                timetable_entry['subjectStatus'] = current.get('status')
+            elif ptype == 'ROOM':
+                timetable_entry['room'] = current.get('shortName')
+                timetable_entry['roomLong'] = current.get('longName')
+        
+        removed = item.get('removed')
+        if removed:
+            rtype = removed.get('type')
+            if rtype == 'TEACHER':
+                timetable_entry.setdefault('oldteacher', []).append(removed.get('longName'))
+                timetable_entry.setdefault('oldteacherShort', []).append(removed.get('shortName'))
+                timetable_entry.setdefault('oldteacherStatus', []).append(removed.get('status'))
+            elif rtype == 'CLASS':
+                timetable_entry.setdefault('oldclass', []).append(removed.get('shortName'))
+                timetable_entry.setdefault('oldclassStatus', []).append('REMOVED')
+            elif rtype == 'SUBJECT':
+                timetable_entry['oldsubject'] = removed.get('shortName')
+                timetable_entry['oldsubjectLong'] = removed.get('longName')
+                timetable_entry['oldsubjectStatus'] = 'REMOVED'
+            elif rtype == 'ROOM':
+                timetable_entry['oldroom'] = removed.get('shortName')
+                timetable_entry['oldroomLong'] = removed.get('longName')
+    
     return timetable_entry
 
 async def last_update(credentinals):
