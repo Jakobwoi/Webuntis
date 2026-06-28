@@ -375,6 +375,7 @@ class WebUntisClient():
                 dur = entry.get('duration', {})
                 start = dur.get('start')
                 end = dur.get('end')
+                id = entry.get('ids')[0] if entry.get('ids') else None
                 if not start or not end:
                     continue
                 
@@ -404,6 +405,7 @@ class WebUntisClient():
                     if lesson > 11:
                         continue
                     timetable[weekday_str_short][lesson] = {
+                        'upstreamId': id,
                         'class': class_name,
                         'subject': parsed.get('subject'),
                         'subjectLong': parsed.get('subjectLong'),

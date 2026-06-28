@@ -40,6 +40,7 @@ def init_db(corser):
             ) WITH SYSTEM VERSIONING;
             CREATE TABLE IF NOT EXISTS timetable_entries (
                 id INT AUTO_INCREMENT PRIMARY KEY,
+                upstream_id INT NOT NULL,
                 class_id INT NOT NULL,
                 date DATE NOT NULL,
                 period_start TIME NOT NULL,
@@ -101,9 +102,18 @@ def store_timetable_entries(corser, class_id, entries):
                     room_id = corser.lastrowid
                 else:
                     room_id =  corser.fetchone()[0]
-            sql = """-- sql\n INSERT INTO timetable_entries (class_id, date, period_start, period_end, type, status, status_detail, subject, teacher, room) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
+            corser.execute(
+                "SELECT id FROM timetable_entries WHERE upstream_id = %s AND class_id = %s",
+                (e.get('upstreamId'), class_id)
+            )
+            if corser.fetchone():
+                sql = """-- sql\n UPDATE timetable_entries SET date = %s, period_start = %s, period_end = %s, type = %s, status = %s, status_detail = %s, subject = %s, teacher = %s, room = %s WHERE upstream_id = %s AND class_id = %s
+                """
+            else:
+                sql = """-- sql\n INSERT INTO timetable_entries (upstream_id, class_id, date, period_start, period_end, type, status, status_detail, subject, teacher, room) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
             corser.execute(sql, (
+                e.get('upstreamId'),
                 class_id,
                 e['date'],
                 e['startTime'],
