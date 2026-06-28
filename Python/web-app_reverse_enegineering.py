@@ -22,7 +22,7 @@ async def get_otp_token():
 async def time_grid_number(start, end):
     """Calculate the time grid number for WebUntis API."""
     match start:
-        case datetime.time(hour=8, minute=0):
+        case _ if start <= datetime.time(hour=8, minute=0):
             grid_number_start = 1
         case datetime.time(hour=8, minute=55):
             grid_number_start = 2
@@ -42,12 +42,12 @@ async def time_grid_number(start, end):
             grid_number_start = 9
         case datetime.time(hour=16, minute=10):
             grid_number_start = 10
-        case datetime.time(hour=17, minute=0):
+        case _ if start >= datetime.time(hour=17, minute=0):
             grid_number_start = 11
         case _:
             raise ValueError("Invalid start time")
     match end:
-        case datetime.time(hour=8, minute=50):
+        case end if end <= datetime.time(hour=8, minute=50):
             grid_number_end = 1
         case datetime.time(hour=9, minute=45):
             grid_number_end = 2
@@ -67,7 +67,7 @@ async def time_grid_number(start, end):
             grid_number_end = 9
         case datetime.time(hour=17, minute=0):
             grid_number_end = 10
-        case datetime.time(hour=17, minute=50):
+        case _ if end >= datetime.time(hour=17, minute=50):
             grid_number_end = 11
         case _:
             raise ValueError("Invalid end time")
@@ -355,7 +355,7 @@ async def get_timetable_rest_teacher(credentinals, teacherShort, start_date, end
                     
                     for lessonNumber in range(start_lesson, end_lesson + 1):
                         timetable[weekdayStrShort][lessonNumber] = parsed_entry
-                    print('Found ' + parsed_entry.get("subjectLong") + ' in class ' + class_name + ' in ' + parsed_entry.get("room") + ' on ' + weekdayStr)
+                    #print('Found ' + parsed_entry.get("subjectLong") + ' in class ' + class_name + ' in ' + parsed_entry.get("room") + ' on ' + weekdayStr)
     return timetable
 
 async def get_timetable_rest_room(credentinals, roomNumber, start_date, end_date):
@@ -471,7 +471,10 @@ async def get_timetable_rest_room(credentinals, roomNumber, start_date, end_date
                     
                     for lessonNumber in range(start_lesson, end_lesson + 1):
                         timetable[weekdayStrShort][lessonNumber] = parsed_entry
-                    print('Found ' + parsed_entry.get("subjectLong") + ' in class ' + class_name + ' with ' + parsed_entry.get("teacher") + ' on ' + weekdayStr)
+                    try:
+                        print(f'Found {parsed_entry.get("subjectLong")} in class {class_name} with {parsed_entry.get("teacher")} on {weekdayStr}')
+                    except Exception as e:
+                        print(f'Found in class {class_name} on {weekdayStr}')
     return timetable
 
 async def parse_timetable_rest(timetableJSON):
@@ -702,7 +705,7 @@ async def main():
         friday = monday + datetime.timedelta(days=4)
         print(f"Fetching timetable from {monday} to {friday}...")
         #timetable_data = await get_timetable_rest_room(credentinals, 'A313', monday, friday)
-        timetable_data = await get_timetable_rest_teacher(credentinals, 'HAIK', monday, friday)
+        timetable_data = await get_timetable_rest_teacher(credentinals, 'STEL', monday, friday)
         with open('timetable2.json', 'w', encoding='utf-8') as f:
             json.dump(timetable_data, f, ensure_ascii=False, indent=4)
         print("Timetable saved to timetable2.json")

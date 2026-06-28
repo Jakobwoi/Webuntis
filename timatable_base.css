@@ -48,7 +48,6 @@
 .lesson-normal:hover {
     background-color: #ffaa33;
 }
-
 .lesson-changed {
     background-color: #642cff;
     display: block;
@@ -68,6 +67,7 @@
 .lesson-hidden {
     display: none;
 }
+
 
 .teacher-name {
     font-size: small;
